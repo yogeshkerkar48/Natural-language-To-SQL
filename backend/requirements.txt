@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+sqlglot
+python-multipart
+python-dotenv
+g4f
+sqlalchemy
+pymysql

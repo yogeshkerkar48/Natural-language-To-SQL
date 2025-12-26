@@ -1,0 +1,31 @@
+version: "2"
+# Replace YOUR_AUTH_TOKEN_HERE with your actual ngrok authtoken
+# Get it from: https://dashboard.ngrok.com/get-started/your-authtoken
+authtoken: YOUR_AUTH_TOKEN_HERE
+
+tunnels:
+  # Expose nginx (recommended - exposes both frontend and backend)
+  nginx:
+    proto: http
+    addr: 8081
+    inspect: true
+    bind_tls: true
+  
+  # Expose frontend directly
+  frontend:
+    proto: http
+    addr: 8080
+    inspect: true
+    bind_tls: true
+  
+  # Expose backend directly
+  backend:
+    proto: http
+    addr: 8000
+    inspect: true
+    bind_tls: true
+
+# Usage:
+# Start all tunnels: ngrok start --all --config ngrok.yml
+# Start specific tunnel: ngrok start nginx --config ngrok.yml
+# Start multiple: ngrok start nginx frontend --config ngrok.yml
