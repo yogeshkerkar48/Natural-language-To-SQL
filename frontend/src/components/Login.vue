@@ -2,8 +2,8 @@
   <div class="auth-container">
     <div class="auth-card">
       <div class="auth-header">
-        <h1>Welcome Back</h1>
-        <p>Sign in to continue to NL2SQL Generator</p>
+        <h1>Talk to your data</h1>
+        <p>Sign in to start generating queries</p>
       </div>
 
       <form @submit.prevent="handleLogin" class="auth-form">
