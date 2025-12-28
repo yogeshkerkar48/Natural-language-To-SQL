@@ -43,15 +43,17 @@ const generateMermaidSyntax = () => {
 
   // Add Tables (Classes)
   props.tables.forEach(table => {
-    // Avoid spaces in table names for mermaid id
+    // Sanitize table name for Mermaid ID, but use raw name in backticks for display/keyword safety
     const tableId = table.name.replace(/\s+/g, '_');
     if (!tableId) return;
     
     try {
-      syntax += `  class ${tableId} {\n`;
+      syntax += `  class \`${table.name}\` {\n`;
       table.columns.forEach(col => {
         if (col.name && col.type) {
-           // Format: Name: Type (table name is the class name)
+           // Format: Name Type (No colon in classDiagram members for types in standard mermaid)
+           // Actually classDiagram uses "type name" or "name type" depending on version
+           // Let's use name : type format which is usually safe in newer versions
            syntax += `    ${col.name}: ${col.type}\n`;
         }
       });
@@ -64,10 +66,11 @@ const generateMermaidSyntax = () => {
   // Add Relationships
   props.relationships.forEach(rel => {
     if (rel.from_table && rel.to_table && rel.from_column && rel.to_column) {
-      const fromId = rel.from_table.replace(/\s+/g, '_');
-      const toId = rel.to_table.replace(/\s+/g, '_');
-      // Use arrow notation for simple relationship
-      syntax += `  ${fromId} --> ${toId} : ${rel.from_column} -> ${rel.to_column}\n`;
+      // Use backticks for table names to handle spaces or reserved keywords
+      const fromName = `\`${rel.from_table}\``;
+      const toName = `\`${rel.to_table}\``;
+      // Use standard relationship notation
+      syntax += `  ${fromName} --> ${toName} : "${rel.from_column} -> ${rel.to_column}"\n`;
     }
   });
 

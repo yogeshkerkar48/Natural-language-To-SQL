@@ -4,7 +4,9 @@ from typing import List
 from app.schemas.payload import StructuredSchemaRequest, SQLResponse
 from app.schemas.project import ProjectCreate, ProjectResponse, ProjectDetailResponse, ProjectUpdate
 from app.models.project import Project
+from app.models.user import User
 from app.core.database import get_db
+from app.core.auth import get_current_user
 from app.services.model_service import model_service
 from app.core.security import validate_sql
 from app.core.schema_validator import (
@@ -68,10 +70,17 @@ def generate_query(request: StructuredSchemaRequest):
 # Project Persistence Endpoints
 
 @router.post("/projects", response_model=ProjectResponse)
-def save_project(project_in: ProjectCreate, db: Session = Depends(get_db)):
-    """Save a project state. If project with same name exists, update it."""
-    # Check if project with same name already exists
-    existing_project = db.query(Project).filter(Project.name == project_in.name).first()
+def save_project(
+    project_in: ProjectCreate, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Save a project state. If project with same name exists for this user, update it."""
+    # Check if project with same name already exists for this user
+    existing_project = db.query(Project).filter(
+        Project.name == project_in.name,
+        Project.user_id == current_user.id
+    ).first()
     
     if existing_project:
         # Update existing project
@@ -83,7 +92,8 @@ def save_project(project_in: ProjectCreate, db: Session = Depends(get_db)):
         # Create new project
         db_project = Project(
             name=project_in.name,
-            state=project_in.state
+            state=project_in.state,
+            user_id=current_user.id
         )
         db.add(db_project)
         db.commit()
@@ -91,22 +101,39 @@ def save_project(project_in: ProjectCreate, db: Session = Depends(get_db)):
         return db_project
 
 @router.get("/projects", response_model=List[ProjectResponse])
-def list_projects(db: Session = Depends(get_db)):
-    """List all saved projects."""
-    return db.query(Project).order_by(Project.created_at.desc()).all()
+def list_projects(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """List all saved projects for the current user."""
+    return db.query(Project).filter(Project.user_id == current_user.id).order_by(Project.created_at.desc()).all()
 
 @router.get("/projects/{project_id}", response_model=ProjectDetailResponse)
-def get_project(project_id: int, db: Session = Depends(get_db)):
+def get_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """Get a specific project state."""
-    db_project = db.query(Project).filter(Project.id == project_id).first()
+    db_project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.user_id == current_user.id
+    ).first()
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
     return db_project
 
 @router.delete("/projects/{project_id}")
-def delete_project(project_id: int, db: Session = Depends(get_db)):
+def delete_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """Delete a project."""
-    db_project = db.query(Project).filter(Project.id == project_id).first()
+    db_project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.user_id == current_user.id
+    ).first()
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
     db.delete(db_project)

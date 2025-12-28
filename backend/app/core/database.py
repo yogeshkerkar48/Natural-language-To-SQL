@@ -6,19 +6,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Default to SQLite if MySQL env vars are not provided
+# PostgreSQL URL
 SQLALCHEMY_DATABASE_URL = os.getenv(
     "DATABASE_URL", 
-    "sqlite:///./nl2sql.db"
+    "postgresql://postgres:postgres@localhost:5432/nl2sql"
 )
 
-# SQLite specific config (check_same_thread)
-if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
-    engine = create_engine(
-        SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-    )
-else:
-    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

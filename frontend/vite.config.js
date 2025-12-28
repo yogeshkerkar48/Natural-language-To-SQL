@@ -8,6 +8,13 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 8080,
     strictPort: false,
-    allowedHosts: ['.ngrok-free.dev', '.ngrok.io']
+    allowedHosts: ['.ngrok-free.dev', '.ngrok.io'],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   }
 })
