@@ -2,18 +2,20 @@
   <div class="query-input-container">
     <!-- Project Actions -->
     <div class="project-actions">
-      <button @click="showLoadModal = true" class="btn secondary small">📂 Load Project</button>
-      <button @click="showSaveModal = true" :disabled="tables.length === 0" class="btn secondary small">💾 Save Project</button>
+      <div v-if="currentProjectName" class="current-project">
+        <span class="folder-icon">📂</span>
+        <span class="project-name">{{ currentProjectName }}</span>
+        <button @click="unloadProject" class="unload-btn" title="Unload Project">×</button>
+      </div>
+      <button @click="showLoadModal = true" class="btn secondary-project small">📂 Load Project</button>
+      <button @click="showSaveModal = true" :disabled="tables.length === 0" class="btn secondary-project small">💾 Save Project</button>
     </div>
 
     <!-- Visual Schema Builder -->
     <SchemaBuilder v-model="tables" />
 
-    <!-- Visual Relationship Builder -->
-    <RelationshipBuilder v-model="relationships" :tables="tables" />
-
-    <!-- ER Diagram Canvas -->
-    <SchemaCanvas :tables="tables" :relationships="relationships" />
+    <!-- Interactive Schema Diagram with Drag & Drop -->
+    <InteractiveSchemaCanvas :tables="tables" :relationships="relationships" @update:relationships="relationships = $event" />
 
     <!-- Question Input -->
     <div class="card query-card">
@@ -72,8 +74,7 @@
 import { ref, onMounted, watch } from 'vue';
 import api from '../services/api';
 import SchemaBuilder from './SchemaBuilder.vue';
-import RelationshipBuilder from './RelationshipBuilder.vue';
-import SchemaCanvas from './SchemaCanvas.vue';
+import InteractiveSchemaCanvas from './InteractiveSchemaCanvas.vue';
 import SaveProjectModal from './SaveProjectModal.vue';
 import LoadProjectModal from './LoadProjectModal.vue';
 
@@ -93,6 +94,7 @@ const savingProject = ref(false);
 const loadingProjects = ref(false);
 const savedProjects = ref([]);
 const lastGeneratedSql = ref('');
+const currentProjectName = ref('');
 
 // Listen for generated SQL to save it in state
 watch(() => lastGeneratedSql.value, (newVal) => {
@@ -148,6 +150,7 @@ const handleSaveProject = async (name) => {
 
   try {
     await api.saveProject(name, state);
+    currentProjectName.value = name;
     showSaveModal.value = false;
     alert('Project saved successfully!');
   } catch (error) {
@@ -161,7 +164,8 @@ const handleSaveProject = async (name) => {
 const handleLoadProject = async (id) => {
   try {
     const response = await api.getProject(id);
-    const { state } = response.data;
+    const { state, name } = response.data;
+    currentProjectName.value = name;
     
     // Restore state
     tables.value = state.tables || [];
@@ -178,6 +182,17 @@ const handleLoadProject = async (id) => {
   } catch (error) {
     console.error('Failed to load project:', error);
     alert('Load failed: ' + (error.response?.data?.detail || error.message));
+  }
+};
+
+const unloadProject = () => {
+  if (confirm('Are you sure you want to unload the current project? Any unsaved changes will be lost.')) {
+    currentProjectName.value = '';
+    tables.value = [];
+    relationships.value = [];
+    question.value = '';
+    lastGeneratedSql.value = '';
+    emit('sql-generated', null);
   }
 };
 
@@ -206,7 +221,70 @@ const handleDeleteProject = async (id) => {
 .project-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 12px;
+}
+
+.current-project {
+  margin-right: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  padding: 8px 16px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.folder-icon {
+  font-size: 1.2rem;
+}
+
+.project-name {
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+}
+
+.unload-btn {
+  background: #fee2e2;
+  color: #ef4444;
+  border: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  margin-left: 4px;
+  transition: all 0.2s;
+}
+
+.unload-btn:hover {
+  background: #fecaca;
+  transform: scale(1.1);
+}
+
+.btn.secondary-project {
+  background: white;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  width: auto;
+  margin-top: 0;
+  padding: 10px 18px;
+  font-size: 0.9rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.btn.secondary-project:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #1e293b;
 }
 
 .card {
