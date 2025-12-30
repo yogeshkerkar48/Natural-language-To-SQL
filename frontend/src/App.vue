@@ -17,12 +17,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import UserMenu from './components/UserMenu.vue';
 import authService from './services/authService';
 
 const route = useRoute();
+const router = useRouter();
 
 // Use reactive state from authService
 const authState = authService.state;
@@ -31,11 +32,56 @@ const isAuthenticated = computed(() => {
   return authState.isAuthenticated && route.path !== '/login' && route.path !== '/register';
 });
 
-// Load user on mount if authenticated (to verify token)
+// --- Inactivity Timeout Logic ---
+const TIMEOUT_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
+let logoutTimer = null;
+
+const resetTimer = () => {
+  if (logoutTimer) clearTimeout(logoutTimer);
+  
+  // Only set timer if user is authenticated
+  if (authState.isAuthenticated) {
+    logoutTimer = setTimeout(() => {
+      handleAutoLogout();
+    }, TIMEOUT_DURATION);
+  }
+};
+
+const handleAutoLogout = () => {
+  console.log('User inactive for 30 minutes. Logging out...');
+  authService.logout();
+  router.push('/login');
+  alert('You have been logged out due to inactivity.');
+};
+
+const activityEvents = ['mousemove', 'mousedown', 'keydown', 'scroll', 'click', 'touchstart'];
+
+const setupActivityListeners = () => {
+  activityEvents.forEach(event => {
+    window.addEventListener(event, resetTimer);
+  });
+};
+
+const cleanupActivityListeners = () => {
+  activityEvents.forEach(event => {
+    window.removeEventListener(event, resetTimer);
+  });
+};
+// ---------------------------------
+
+// Load user on mount and setup activity tracking
 onMounted(() => {
   if (authService.getToken()) {
     authService.getCurrentUser();
   }
+  
+  setupActivityListeners();
+  resetTimer();
+});
+
+onUnmounted(() => {
+  cleanupActivityListeners();
+  if (logoutTimer) clearTimeout(logoutTimer);
 });
 </script>
 

@@ -94,6 +94,31 @@ const dragOverTable = ref(null);
 const dragOverColumn = ref(null);
 const isDragging = ref(false);
 
+// Type compatibility groups
+const TYPE_GROUPS = {
+  numeric: ['INT', 'TINYINT', 'SMALLINT', 'BIGINT', 'DECIMAL', 'NUMERIC', 'FLOAT', 'DOUBLE', 'REAL', 'BIT'],
+  string: ['VARCHAR', 'CHAR', 'TEXT', 'LONGTEXT', 'MEDIUMTEXT', 'TINYTEXT', 'JSON', 'ENUM', 'SET'],
+  dateTime: ['DATE', 'DATETIME', 'TIMESTAMP', 'TIME', 'YEAR'],
+  binary: ['BINARY', 'VARBINARY', 'BLOB', 'LONGBLOB', 'MEDIUMBLOB', 'TINYBLOB']
+};
+
+const areTypesCompatible = (type1, type2) => {
+  if (!type1 || !type2) return false;
+  
+  const t1 = type1.toUpperCase().split('(')[0].trim();
+  const t2 = type2.toUpperCase().split('(')[0].trim();
+  
+  if (t1 === t2) return true;
+  
+  for (const group in TYPE_GROUPS) {
+    if (TYPE_GROUPS[group].includes(t1) && TYPE_GROUPS[group].includes(t2)) {
+      return true;
+    }
+  }
+  
+  return false;
+};
+
 watch(() => props.modelValue, (newVal) => {
   relationships.value = newVal || [];
 }, { deep: true });
@@ -150,6 +175,18 @@ const handleDrop = (event, tableName, columnName) => {
   
   // Don't create relationship if dropping on the same column
   if (dragSource.value.table === tableName && dragSource.value.column === columnName) {
+    return;
+  }
+  
+  // Find column types
+  const sourceTable = props.tables.find(t => t.name === dragSource.value.table);
+  const sourceColumn = sourceTable?.columns.find(c => c.name === dragSource.value.column);
+  const targetTable = props.tables.find(t => t.name === tableName);
+  const targetColumn = targetTable?.columns.find(c => c.name === columnName);
+  
+  // Check if types are compatible
+  if (!areTypesCompatible(sourceColumn?.type, targetColumn?.type)) {
+    alert(`Cannot relate columns with incompatible types: ${sourceColumn?.type} and ${targetColumn?.type}.\nPlease use compatible types (e.g., both numeric or both string).`);
     return;
   }
   

@@ -4,6 +4,16 @@ from pydantic import BaseModel
 class ColumnDef(BaseModel):
     name: str
     type: str
+    primaryKey: bool = False
+    notNull: bool = False
+    unique: bool = False
+    hasDefault: bool = False
+    defaultValue: Optional[str] = None
+    hasCheck: bool = False
+    checkCondition: Optional[str] = None
+    isForeignKey: bool = False
+    fkTable: Optional[str] = None
+    fkColumn: Optional[str] = None
 
 class TableDef(BaseModel):
     name: str

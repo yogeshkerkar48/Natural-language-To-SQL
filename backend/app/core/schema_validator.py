@@ -85,10 +85,32 @@ def format_schema_for_model(
     """
     schema_parts = ["Tables:"]
     
-    # Add table definitions with types
+    # Add table definitions with constraints
     for table in tables:
-        # Format: table_name(col1 TYPE, col2 TYPE, ...)
-        cols_formatted = [f"{col.name} {col.type}" for col in table.columns]
+        # Format: table_name(col1 TYPE CONSTRAINTS, col2 TYPE CONSTRAINTS, ...)
+        cols_formatted = []
+        for col in table.columns:
+            constraints = []
+            if col.primaryKey:
+                constraints.append("PRIMARY KEY")
+            if col.notNull:
+                constraints.append("NOT NULL")
+            if col.unique:
+                constraints.append("UNIQUE")
+            if col.hasDefault and col.defaultValue:
+                # Add default value logic
+                constraints.append(f"DEFAULT {col.defaultValue}")
+            if col.hasCheck and col.checkCondition:
+                constraints.append(f"CHECK({col.checkCondition})")
+            if col.isForeignKey and col.fkTable and col.fkColumn:
+                constraints.append(f"REFERENCES {col.fkTable}({col.fkColumn})")
+            
+            # Combine name, type, and constraints
+            col_str = f"{col.name} {col.type}"
+            if constraints:
+                col_str += f" {' '.join(constraints)}"
+            cols_formatted.append(col_str)
+            
         schema_parts.append(f"{table.name}({', '.join(cols_formatted)})")
     
     # Add relationships if any
