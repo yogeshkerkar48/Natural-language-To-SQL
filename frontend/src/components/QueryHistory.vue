@@ -27,7 +27,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, defineExpose } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import api from '../services/api';
 
 const props = defineProps({

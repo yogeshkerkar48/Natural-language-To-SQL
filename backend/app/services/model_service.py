@@ -64,9 +64,17 @@ class ModelService:
         
         # Extract SQL if there's explanatory text
         # Look for any valid SQL statement start
-        sql_match = re.search(r'((?:WITH|SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|COMMIT|ROLLBACK|SAVEPOINT|SET|SHOW|DESCRIBE|EXPLAIN)\s+.+?;?)\s*$', output, re.IGNORECASE | re.DOTALL)
-        if sql_match:
-            output = sql_match.group(1)
+        
+        # 1. Check for Common Table Expressions (WITH ...) - strict check to avoid matching "with provided schema"
+        cte_match = re.search(r'(WITH\s+[a-zA-Z0-9_]+\s+AS\s*\(.+?;?)\s*$', output, re.IGNORECASE | re.DOTALL)
+        
+        # 2. Check for standard SQL starting keywords
+        standard_match = re.search(r'((?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|COMMIT|ROLLBACK|SAVEPOINT|SET|SHOW|DESCRIBE|EXPLAIN)\s+.+?;?)\s*$', output, re.IGNORECASE | re.DOTALL)
+        
+        if cte_match:
+            output = cte_match.group(1)
+        elif standard_match:
+            output = standard_match.group(1)
         
         # Clean whitespace
         output = output.strip()
