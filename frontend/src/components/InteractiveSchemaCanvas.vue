@@ -132,7 +132,7 @@
                   class="column-rect"
                 />
                 <text x="10" y="22" class="column-name">{{ col.name }}</text>
-                <text :x="tableWidth - 10" y="22" class="column-type" text-anchor="end">{{ col.type }}</text>
+                <text :x="tableWidth - 10" y="22" class="column-type" text-anchor="end">{{ getFullType(col) }}</text>
                 
                 <!-- Drag handle -->
                 <text x="tableWidth / 2" y="22" class="drag-indicator" text-anchor="middle" opacity="0.3">⋮⋮</text>
@@ -497,6 +497,15 @@ watch(() => props.tables, () => {
 onMounted(() => {
   initializePositions();
 });
+const getFullType = (col) => {
+  if (!col.type) return '';
+  let full = col.type;
+  if (col.precision && col.precision.toString().trim() !== '') {
+    full += `(${col.precision}${col.scale && col.scale.toString().trim() !== '' ? `,${col.scale}` : ''})`;
+  }
+  return full;
+};
+
 </script>
 
 <style scoped>

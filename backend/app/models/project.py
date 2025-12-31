@@ -10,6 +10,7 @@ class Project(Base):
     state = Column(JSON)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Nullable for backward compatibility
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationship to User
     user = relationship("User", backref="projects")

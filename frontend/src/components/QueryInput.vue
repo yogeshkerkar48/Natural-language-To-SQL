@@ -8,7 +8,15 @@
         <button @click="unloadProject" class="unload-btn" title="Unload Project">×</button>
       </div>
       <button @click="showLoadModal = true" class="btn secondary-project small">📂 Load Project</button>
-      <button @click="showSaveModal = true" :disabled="tables.length === 0" class="btn secondary-project small">💾 Save Project</button>
+      <button 
+        @click="handleSaveProjectCurrent" 
+        :disabled="!currentProjectName || tables.length === 0 || savingProject" 
+        class="btn secondary-project small"
+      >
+        <span v-if="savingProjectCurrent" class="spinner-small"></span>
+        💾 Save
+      </button>
+      <button @click="showSaveModal = true" :disabled="tables.length === 0" class="btn secondary-project small">💾 Save As...</button>
     </div>
 
     <!-- Visual Schema Builder -->
@@ -98,6 +106,7 @@ const generating = ref(false);
 const showSaveModal = ref(false);
 const showLoadModal = ref(false);
 const savingProject = ref(false);
+const savingProjectCurrent = ref(false);
 const loadingProjects = ref(false);
 const savedProjects = ref([]);
 const lastGeneratedSql = ref('');
@@ -151,6 +160,19 @@ watch(showLoadModal, (newVal) => {
 
 const handleSaveProject = async (name) => {
   savingProject.value = true;
+  await performSave(name);
+  savingProject.value = false;
+  showSaveModal.value = false;
+};
+
+const handleSaveProjectCurrent = async () => {
+  if (!currentProjectName.value) return;
+  savingProjectCurrent.value = true;
+  await performSave(currentProjectName.value);
+  savingProjectCurrent.value = false;
+};
+
+const performSave = async (name) => {
   const state = {
     tables: tables.value,
     relationships: relationships.value,
@@ -163,13 +185,12 @@ const handleSaveProject = async (name) => {
   try {
     await api.saveProject(name, state);
     currentProjectName.value = name;
-    showSaveModal.value = false;
-    alert('Project saved successfully!');
+    // No alert for silent auto-save if desired, but here we keep it for confirmation
+    // maybe a toast would be better but let's stick to alert for consistency
+    // alert('Project saved successfully!');
   } catch (error) {
     console.error('Failed to save project:', error);
     alert('Save failed: ' + (error.response?.data?.detail || error.message));
-  } finally {
-    savingProject.value = false;
   }
 };
 
@@ -451,6 +472,17 @@ h3 {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.spinner-small {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(0,0,0,0.1);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 4px;
 }
 
 .loading-hint {

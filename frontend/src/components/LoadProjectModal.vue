@@ -21,7 +21,7 @@
           >
             <div class="project-info">
               <span class="project-name">{{ project.name }}</span>
-              <span class="project-date">{{ formatDate(project.created_at) }}</span>
+              <span class="project-date">{{ formatDate(project.updated_at || project.created_at) }}</span>
             </div>
             <button @click.stop="emit('delete', project.id)" class="delete-btn" title="Delete project">
               🗑️

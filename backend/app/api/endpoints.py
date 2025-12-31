@@ -123,7 +123,8 @@ def list_projects(
     current_user: User = Depends(get_current_user)
 ):
     """List all saved projects for the current user."""
-    return db.query(Project).filter(Project.user_id == current_user.id).order_by(Project.created_at.desc()).all()
+    from sqlalchemy import func
+    return db.query(Project).filter(Project.user_id == current_user.id).order_by(func.coalesce(Project.updated_at, Project.created_at).desc()).all()
 
 @router.get("/projects/{project_id}", response_model=ProjectDetailResponse)
 def get_project(

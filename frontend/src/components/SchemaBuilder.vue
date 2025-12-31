@@ -226,7 +226,7 @@
                   <span v-if="col.isForeignKey" class="mini-badge fk" title="Foreign Key">FK</span>
                 </span>
                 <div class="col-info">
-                  <span class="col-type-badge">{{ col.type }}</span>
+                  <span class="col-type-badge">{{ getFullType(col) }}</span>
                 </div>
               </div>
               <div v-if="col.hasDefault || col.hasCheck || col.isForeignKey" class="column-view-details">
@@ -654,6 +654,15 @@ const saveAllTables = () => {
     });
     update();
   }
+};
+
+const getFullType = (col) => {
+  if (!col.type) return '';
+  let full = col.type;
+  if (col.precision && col.precision.toString().trim() !== '') {
+    full += `(${col.precision}${col.scale && col.scale.toString().trim() !== '' ? `,${col.scale}` : ''})`;
+  }
+  return full;
 };
 
 </script>
