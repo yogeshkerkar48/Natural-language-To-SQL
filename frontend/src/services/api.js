@@ -60,5 +60,12 @@ export default {
   },
   deleteProject(id) {
     return apiClient.delete(`/projects/${id}`);
+  },
+  suggestIndexes(sql, tables, database_type = "MySQL") {
+    return apiClient.post('/suggest-indexes', {
+      sql,
+      tables,
+      database_type
+    });
   }
 };

@@ -78,6 +78,13 @@ import InteractiveSchemaCanvas from './InteractiveSchemaCanvas.vue';
 import SaveProjectModal from './SaveProjectModal.vue';
 import LoadProjectModal from './LoadProjectModal.vue';
 
+const props = defineProps({
+  currentSuggestions: {
+    type: Object,
+    default: null
+  }
+});
+
 const emit = defineEmits(['sql-generated', 'sql-loading']);
 
 // Structured state (arrays/objects instead of strings)
@@ -113,7 +120,11 @@ const generateSQL = async () => {
       databaseType.value
     );
     lastGeneratedSql.value = response.data.sql;
-    emit('sql-generated', response.data);
+    emit('sql-generated', { 
+      ...response.data, 
+      tables: JSON.parse(JSON.stringify(tables.value)), 
+      databaseType: databaseType.value 
+    });
   } catch (error) {
     console.error(error);
     alert('Generation failed: ' + (error.response?.data?.detail || error.message));
@@ -145,7 +156,8 @@ const handleSaveProject = async (name) => {
     relationships: relationships.value,
     question: question.value,
     databaseType: databaseType.value,
-    sql: lastGeneratedSql.value
+    sql: lastGeneratedSql.value,
+    suggestions: props.currentSuggestions
   };
 
   try {
@@ -174,7 +186,13 @@ const handleLoadProject = async (id) => {
     databaseType.value = state.databaseType || 'MySQL';
     
     if (state.sql) {
-      emit('sql-generated', { sql: state.sql, is_valid: true });
+      emit('sql-generated', { 
+        sql: state.sql, 
+        is_valid: true,
+        tables: JSON.parse(JSON.stringify(tables.value)),
+        databaseType: databaseType.value,
+        suggestions: state.suggestions || null
+      });
       lastGeneratedSql.value = state.sql;
     }
 

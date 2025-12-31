@@ -108,6 +108,20 @@
                   </div>
                 </div>
 
+                <!-- Parameterized Type Inputs -->
+                <div v-if="['VARCHAR', 'CHAR', 'NCHAR', 'NVARCHAR'].includes(col.type.toUpperCase())" class="type-param-input" @click.stop>
+                  <span class="paren">(</span>
+                  <input v-model="col.precision" placeholder="len" title="Length" class="param-input-field" type="number" @input="update" />
+                  <span class="paren">)</span>
+                </div>
+                <div v-if="['DECIMAL', 'NUMERIC', 'FLOAT', 'DOUBLE', 'REAL'].includes(col.type.toUpperCase())" class="type-params-group" @click.stop>
+                  <span class="paren">(</span>
+                  <input v-model="col.precision" placeholder="p" title="Precision" class="param-input-field" type="number" @input="update" />
+                  <span class="comma">,</span>
+                  <input v-model="col.scale" placeholder="s" title="Scale" class="param-input-field" type="number" @input="update" />
+                  <span class="paren">)</span>
+                </div>
+
                 <div class="constraints-toggles">
                   <button 
                     type="button" 
@@ -285,8 +299,10 @@ const TYPE_GROUPS = {
 const areTypesCompatible = (type1, type2) => {
   if (!type1 || !type2) return false;
   
-  const t1 = type1.toUpperCase().split('(')[0].trim();
-  const t2 = type2.toUpperCase().split('(')[0].trim();
+  // Strip precision/length for comparison
+  const strip = (t) => t.toUpperCase().split('(')[0].trim();
+  const t1 = strip(type1);
+  const t2 = strip(type2);
   
   if (t1 === t2) return true;
   
@@ -331,10 +347,27 @@ const isDefaultCompatible = (value, type) => {
   return true;
 };
 
+const parseTypeParameters = (typeStr) => {
+  if (!typeStr) return { base: 'VARCHAR', precision: '', scale: '' };
+  
+  const match = typeStr.match(/^([^(]+)(?:\(([^,)]+)(?:,([^)]+))?\))?$/);
+  if (!match) return { base: typeStr, precision: '', scale: '' };
+  
+  return {
+    base: match[1].trim(),
+    precision: match[2] || '',
+    scale: match[3] || ''
+  };
+};
+
 const initializeColumn = (col) => {
+  const { base, precision, scale } = parseTypeParameters(col.type);
+  
   return {
     name: col.name || '',
-    type: col.type || 'VARCHAR',
+    type: base,
+    precision: col.precision || precision,
+    scale: col.scale || scale,
     primaryKey: col.primaryKey || false,
     notNull: col.notNull || false,
     unique: col.unique || false,
@@ -361,7 +394,17 @@ watch(() => props.modelValue, (newVal) => {
 }, { deep: true, immediate: true });
 
 const update = () => {
-  emit('update:modelValue', tables.value);
+  const processedTables = JSON.parse(JSON.stringify(tables.value)).map(t => ({
+    ...t,
+    columns: t.columns.map(c => {
+      let fullType = c.type;
+      if (c.precision && c.precision.toString().trim() !== '') {
+        fullType += `(${c.precision}${c.scale && c.scale.toString().trim() !== '' ? `,${c.scale}` : ''})`;
+      }
+      return { ...c, type: fullType };
+    })
+  }));
+  emit('update:modelValue', processedTables);
 };
 
 const validateName = (name, type = 'Table') => {
@@ -518,7 +561,9 @@ const addTable = () => {
       checkCondition: '',
       isForeignKey: false,
       fkTable: '',
-      fkColumn: ''
+      fkColumn: '',
+      precision: '',
+      scale: ''
     }],
     isEditing: true,
     validationError: null
@@ -544,7 +589,9 @@ const addColumn = (tableIndex) => {
     checkCondition: '',
     isForeignKey: false,
     fkTable: '',
-    fkColumn: ''
+    fkColumn: '',
+    precision: '',
+    scale: ''
   });
   update();
 };
@@ -560,7 +607,20 @@ const toggleDropdown = (tableIndex, colIndex) => {
 };
 
 const selectType = (tableIndex, colIndex, type) => {
-  tables.value[tableIndex].columns[colIndex].type = type;
+  const col = tables.value[tableIndex].columns[colIndex];
+  const oldBase = col.type.toUpperCase();
+  const newBase = type.toUpperCase();
+  
+  // If moving between categories (e.g. String to Numeric), clear params
+  const isString = (t) => TYPE_GROUPS.string.includes(t);
+  const isNumeric = (t) => TYPE_GROUPS.numeric.includes(t);
+  
+  if ((isString(oldBase) && !isString(newBase)) || (isNumeric(oldBase) && !isNumeric(newBase))) {
+    col.precision = '';
+    col.scale = '';
+  }
+  
+  col.type = type;
   activeDropdown.value = null;
   update();
 };
@@ -635,9 +695,10 @@ const saveAllTables = () => {
 }
 
 .tables-list {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  align-items: flex-start;
   overflow: visible;
 }
 
@@ -649,6 +710,9 @@ const saveAllTables = () => {
   padding-bottom: 2rem;
   transition: all 0.2s;
   overflow: visible;
+  flex: 0 1 auto;
+  min-width: 450px;
+  max-width: 100%;
 }
 
 .table-card:hover {
@@ -871,6 +935,52 @@ const saveAllTables = () => {
 
 .custom-select.active .dropdown-arrow {
   transform: rotate(180deg);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Parameterized Type Inputs */
+.type-param-input, .type-params-group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  background: #f1f5f9;
+  padding: 1px 4px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  height: 28px;
+}
+
+.param-input-field {
+  width: 40px;
+  border: none;
+  background: transparent;
+  font-size: 0.75rem;
+  padding: 0;
+  text-align: center;
+  color: #1e40af;
+  font-weight: 700;
+  appearance: textfield;
+}
+
+.param-input-field:focus {
+  outline: none;
+  background: white;
+  border-radius: 2px;
+}
+
+.param-input-field::-webkit-inner-spin-button,
+.param-input-field::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.paren, .comma {
+  color: #94a3b8;
+  font-weight: 800;
+  font-size: 0.75rem;
 }
 
 .dropdown-menu {

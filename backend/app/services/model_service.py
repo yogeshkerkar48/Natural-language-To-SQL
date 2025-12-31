@@ -64,7 +64,7 @@ class ModelService:
         
         # Extract SQL if there's explanatory text
         # Look for any valid SQL statement start
-        sql_match = re.search(r'((?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|COMMIT|ROLLBACK|SAVEPOINT|SET|SHOW|DESCRIBE|EXPLAIN)\s+.+?;?)\s*$', output, re.IGNORECASE | re.DOTALL)
+        sql_match = re.search(r'((?:WITH|SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|COMMIT|ROLLBACK|SAVEPOINT|SET|SHOW|DESCRIBE|EXPLAIN)\s+.+?;?)\s*$', output, re.IGNORECASE | re.DOTALL)
         if sql_match:
             output = sql_match.group(1)
         

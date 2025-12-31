@@ -1,13 +1,14 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from typing import List
-from app.schemas.payload import StructuredSchemaRequest, SQLResponse
+from app.schemas.payload import StructuredSchemaRequest, SQLResponse, IndexSuggestionRequest, IndexSuggestionResponse
 from app.schemas.project import ProjectCreate, ProjectResponse, ProjectDetailResponse, ProjectUpdate
 from app.models.project import Project
 from app.models.user import User
 from app.core.database import get_db
 from app.core.auth import get_current_user
 from app.services.model_service import model_service
+from app.services.index_advisor import index_advisor
 from app.core.security import validate_sql
 from app.core.schema_validator import (
     validate_schema,
@@ -64,6 +65,22 @@ def generate_query(request: StructuredSchemaRequest):
         return SQLResponse(sql=sql, is_valid=is_valid, message=message)
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/suggest-indexes", response_model=IndexSuggestionResponse)
+def suggest_indexes(request: IndexSuggestionRequest):
+    """
+    Suggest optimal indexes based on the generated SQL query and schema.
+    """
+    try:
+        # Generate suggestions using the advisor service
+        response = index_advisor.suggest_indexes(
+            sql=request.sql,
+            tables=request.tables,
+            database_type=request.database_type
+        )
+        return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

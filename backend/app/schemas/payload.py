@@ -36,3 +36,18 @@ class SQLResponse(BaseModel):
     sql: str
     is_valid: bool
     message: Optional[str] = None
+
+class IndexSuggestionRequest(BaseModel):
+    sql: str
+    tables: List[TableDef]
+    database_type: str = "MySQL"
+
+class IndexSuggestion(BaseModel):
+    table: str
+    columns: List[str]
+    index_type: str  # e.g., "B-TREE", "UNIQUE", "COMPOSITE"
+    rationale: str
+
+class IndexSuggestionResponse(BaseModel):
+    suggestions: List[IndexSuggestion]
+    summary: str
