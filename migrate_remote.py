@@ -36,7 +36,22 @@ def run_migration():
                 conn.commit()
                 print("Successfully added 'updated_at' column!")
             else:
-                print("Column 'updated_at' already exists. Your schema is up to date.")
+                print("Column 'updated_at' already exists.")
+
+            # Ensure 'query_history' table exists
+            print("Checking for 'query_history' table...")
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS query_history (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id),
+                    question VARCHAR(1000) NOT NULL,
+                    sql_generated TEXT,
+                    database_type VARCHAR(50),
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                );
+            """))
+            conn.commit()
+            print("Successfully ensured 'query_history' table exists!")
                 
     except Exception as e:
         print(f"An error occurred: {e}")

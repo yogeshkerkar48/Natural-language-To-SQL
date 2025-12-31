@@ -52,6 +52,9 @@
         rows="3"
         class="question-input"
       ></textarea>
+      
+      <!-- Query History -->
+      <QueryHistory ref="historyRef" :project-id="currentProjectId" @select="question = $event" />
       <button @click="generateSQL" :disabled="generating || !question || tables.length === 0" class="btn accent">
         <span v-if="generating" class="spinner"></span>
         {{ generating ? 'Generating SQL...' : '🚀 Generate SQL' }}
@@ -85,6 +88,9 @@ import SchemaBuilder from './SchemaBuilder.vue';
 import InteractiveSchemaCanvas from './InteractiveSchemaCanvas.vue';
 import SaveProjectModal from './SaveProjectModal.vue';
 import LoadProjectModal from './LoadProjectModal.vue';
+import QueryHistory from './QueryHistory.vue';
+
+const historyRef = ref(null);
 
 const props = defineProps({
   currentSuggestions: {
@@ -111,6 +117,7 @@ const loadingProjects = ref(false);
 const savedProjects = ref([]);
 const lastGeneratedSql = ref('');
 const currentProjectName = ref('');
+const currentProjectId = ref(null);
 
 // Listen for generated SQL to save it in state
 watch(() => lastGeneratedSql.value, (newVal) => {
@@ -126,7 +133,8 @@ const generateSQL = async () => {
       question.value, 
       tables.value, 
       relationships.value,
-      databaseType.value
+      databaseType.value,
+      currentProjectId.value
     );
     lastGeneratedSql.value = response.data.sql;
     emit('sql-generated', { 
@@ -134,6 +142,11 @@ const generateSQL = async () => {
       tables: JSON.parse(JSON.stringify(tables.value)), 
       databaseType: databaseType.value 
     });
+    
+    // Refresh history after successful generation
+    if (historyRef.value) {
+      historyRef.value.refresh();
+    }
   } catch (error) {
     console.error(error);
     alert('Generation failed: ' + (error.response?.data?.detail || error.message));
@@ -183,8 +196,11 @@ const performSave = async (name) => {
   };
 
   try {
-    await api.saveProject(name, state);
+    const response = await api.saveProject(name, state);
     currentProjectName.value = name;
+    if (response.data && response.data.id) {
+       currentProjectId.value = response.data.id;
+    }
     // No alert for silent auto-save if desired, but here we keep it for confirmation
     // maybe a toast would be better but let's stick to alert for consistency
     // alert('Project saved successfully!');
@@ -197,8 +213,9 @@ const performSave = async (name) => {
 const handleLoadProject = async (id) => {
   try {
     const response = await api.getProject(id);
-    const { state, name } = response.data;
+    const { state, name, id: projectId } = response.data;
     currentProjectName.value = name;
+    currentProjectId.value = projectId;
     
     // Restore state
     tables.value = state.tables || [];
@@ -227,6 +244,7 @@ const handleLoadProject = async (id) => {
 const unloadProject = () => {
   if (confirm('Are you sure you want to unload the current project? Any unsaved changes will be lost.')) {
     currentProjectName.value = '';
+    currentProjectId.value = null;
     tables.value = [];
     relationships.value = [];
     question.value = '';

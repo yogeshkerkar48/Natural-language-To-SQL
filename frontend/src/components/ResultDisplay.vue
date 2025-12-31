@@ -40,6 +40,12 @@
               <span v-for="col in sug.columns" :key="col" class="col-pill">{{ col }}</span>
             </div>
             <p class="sug-rationale">{{ sug.rationale }}</p>
+            <div class="sug-sql-wrapper">
+              <pre class="sug-sql"><code>{{ sug.sql }}</code></pre>
+              <button @click="copyIndexSQL(sug.sql, idx)" class="btn-copy-sm">
+                {{ indexCopied === idx ? '✓' : '📋' }}
+              </button>
+            </div>
           </div>
         </div>
         <div v-else-if="!loadingSuggestions" class="no-suggestions">
@@ -66,6 +72,7 @@ const emit = defineEmits(['suggestions-fetched']);
 const copied = ref(false);
 const loadingSuggestions = ref(false);
 const suggestions = ref(null);
+const indexCopied = ref(null);
 
 import { watch } from 'vue';
 watch(() => props.result, (newVal) => {
@@ -84,6 +91,14 @@ const copySQL = () => {
       copied.value = false;
     }, 2000);
   }
+};
+
+const copyIndexSQL = (sql, idx) => {
+  navigator.clipboard.writeText(sql);
+  indexCopied.value = idx;
+  setTimeout(() => {
+    indexCopied.value = null;
+  }, 2000);
 };
 
 const getSuggestions = async () => {
@@ -294,7 +309,42 @@ h3 {
   font-size: 0.85rem;
   color: #475569;
   line-height: 1.5;
+  margin: 0 0 10px 0;
+}
+
+.sug-sql-wrapper {
+  position: relative;
+  background: #1e293b;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.sug-sql {
   margin: 0;
+  padding: 12px;
+  color: #10b981;
+  font-size: 0.85rem;
+  font-family: 'Fira Code', monospace;
+  overflow-x: auto;
+}
+
+.btn-copy-sm {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #94a3b8;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 10px;
+  transition: all 0.2s;
+}
+
+.btn-copy-sm:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
 }
 
 .no-suggestions {

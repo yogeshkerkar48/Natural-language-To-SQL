@@ -1,12 +1,14 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from app.schemas.payload import StructuredSchemaRequest, SQLResponse, IndexSuggestionRequest, IndexSuggestionResponse
 from app.schemas.project import ProjectCreate, ProjectResponse, ProjectDetailResponse, ProjectUpdate
+from app.schemas.history import QueryHistoryResponse
 from app.models.project import Project
 from app.models.user import User
+from app.models.history import QueryHistory
 from app.core.database import get_db
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, get_optional_current_user
 from app.services.model_service import model_service
 from app.services.index_advisor import index_advisor
 from app.core.security import validate_sql
@@ -19,12 +21,18 @@ from app.core.schema_validator import (
 router = APIRouter()
 
 @router.post("/generate", response_model=SQLResponse)
-def generate_query(request: StructuredSchemaRequest):
+def generate_query(
+    request: StructuredSchemaRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
     """
     Generate SQL from natural language question with structured schema.
     
     Args:
         request: Contains question, tables, and relationships
+        db: Database session
+        current_user: Optional logged in user
         
     Returns:
         SQLResponse with generated SQL and validation status
@@ -61,6 +69,18 @@ def generate_query(request: StructuredSchemaRequest):
         
         # Validate the generated SQL
         is_valid, message = validate_sql(sql, dialect=request.database_type)
+        
+        # Log to history if user is logged in
+        if current_user:
+            history_entry = QueryHistory(
+                user_id=current_user.id,
+                question=request.question,
+                sql_generated=sql,
+                database_type=request.database_type,
+                project_id=request.project_id
+            )
+            db.add(history_entry)
+            db.commit()
         
         return SQLResponse(sql=sql, is_valid=is_valid, message=message)
     except HTTPException:
@@ -157,3 +177,39 @@ def delete_project(
     db.delete(db_project)
     db.commit()
     return {"message": "Project deleted"}
+
+# Query History Endpoints
+
+@router.get("/history", response_model=List[QueryHistoryResponse])
+def get_query_history(
+    project_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    limit: int = 20
+):
+    """Get the recent high-quality query history for the current user, optionally filtered by project."""
+    query = db.query(QueryHistory).filter(QueryHistory.user_id == current_user.id)
+    
+    if project_id:
+        query = query.filter(QueryHistory.project_id == project_id)
+        
+    return query.order_by(QueryHistory.created_at.desc()).limit(limit).all()
+
+@router.delete("/history/{history_id}")
+def delete_history_item(
+    history_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a specific history item."""
+    history = db.query(QueryHistory).filter(
+        QueryHistory.id == history_id,
+        QueryHistory.user_id == current_user.id
+    ).first()
+    
+    if not history:
+        raise HTTPException(status_code=404, detail="History item not found")
+        
+    db.delete(history)
+    db.commit()
+    return {"message": "History item deleted"}

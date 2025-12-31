@@ -31,6 +31,7 @@ class StructuredSchemaRequest(BaseModel):
     tables: List[TableDef]
     relationships: List[RelationshipDef]
     database_type: str = "MySQL"  # Default to MySQL
+    project_id: Optional[int] = None
     
 class SQLResponse(BaseModel):
     sql: str
@@ -47,6 +48,7 @@ class IndexSuggestion(BaseModel):
     columns: List[str]
     index_type: str  # e.g., "B-TREE", "UNIQUE", "COMPOSITE"
     rationale: str
+    sql: str
 
 class IndexSuggestionResponse(BaseModel):
     suggestions: List[IndexSuggestion]

@@ -119,3 +119,33 @@ def get_current_user(
         )
     
     return user
+
+
+def get_optional_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: Session = Depends(get_db)
+) -> Optional[User]:
+    """
+    Optional version of get_current_user. 
+    Returns None if no token or invalid token, instead of raising 401.
+    """
+    if credentials is None:
+        return None
+    
+    token = credentials.credentials
+    if not token:
+        return None
+
+    try:
+        payload = decode_access_token(token)
+        user_id = payload.get("sub")
+        if user_id is None:
+            return None
+        user_id = int(user_id)
+        user = db.query(User).filter(User.id == user_id).first()
+        if user and user.is_active:
+            return user
+    except Exception:
+        pass
+    
+    return None

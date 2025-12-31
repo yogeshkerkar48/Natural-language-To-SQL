@@ -41,12 +41,13 @@ apiClient.interceptors.response.use(
 );
 
 export default {
-  generate(question, tables, relationships, database_type = "MySQL") {
+  generate(question, tables, relationships, database_type = "MySQL", projectId = null) {
     return apiClient.post('/generate', {
       question,
       tables,
       relationships,
-      database_type
+      database_type,
+      project_id: projectId
     });
   },
   saveProject(name, state) {
@@ -67,5 +68,12 @@ export default {
       tables,
       database_type
     });
+  },
+  getQueryHistory(projectId = null) {
+    const params = projectId ? { project_id: projectId } : {};
+    return apiClient.get('/history', { params });
+  },
+  deleteQueryHistory(id) {
+    return apiClient.delete(`/history/${id}`);
   }
 };

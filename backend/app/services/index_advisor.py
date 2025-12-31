@@ -19,7 +19,8 @@ RULES:
    - Use {database_type} terminology (e.g., "BTREE", "HASH", etc. as supported by this dialect).
    - Do NOT suggest features unique to other databases (e.g., no PostgreSQL GIST/GIN suggests for MySQL).
 4. Provide a brief technical rationale for each suggestion, mentioning the benefit for {database_type}.
-5. Return the response in STRICT JSON format as shown below.
+5. MANDATORY: Include the full SQL "sql" command to create the index (e.g., "CREATE INDEX idx_name ON table(col);").
+6. Return the response in STRICT JSON format as shown below.
 
 SCHEMA:
 {schema_str}
@@ -36,7 +37,8 @@ Expected JSON format:
             "table": "table_name",
             "columns": ["col1", "col2"],
             "index_type": "type",
-            "rationale": "reasoning"
+            "rationale": "reasoning",
+            "sql": "CREATE INDEX idx_name ON table_name(col1, col2);"
         }}
     ],
     "summary": "Overall performance impact summary"
@@ -95,6 +97,12 @@ class IndexAdvisor:
 
             suggestions = []
             for item in json_data.get("suggestions", []):
+                # Fallback if LLM forgets the 'sql' field
+                if "sql" not in item or not item["sql"]:
+                    idx_name = f"idx_{item['table']}_{'_'.join(item['columns'])}"
+                    cols_str = ", ".join(item['columns'])
+                    item["sql"] = f"CREATE INDEX {idx_name} ON {item['table']}({cols_str});"
+                
                 suggestions.append(IndexSuggestion(**item))
 
             return IndexSuggestionResponse(
