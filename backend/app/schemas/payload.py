@@ -37,6 +37,9 @@ class SQLResponse(BaseModel):
     sql: str
     is_valid: bool
     message: Optional[str] = None
+    from_cache: bool = False
+    cache_similarity: Optional[float] = None
+    original_question: Optional[str] = None
 
 class IndexSuggestionRequest(BaseModel):
     sql: str
@@ -53,3 +56,29 @@ class IndexSuggestion(BaseModel):
 class IndexSuggestionResponse(BaseModel):
     suggestions: List[IndexSuggestion]
     summary: str
+
+# SML Import/Export Schemas
+
+class SMLImportRequest(BaseModel):
+    """Request model for importing SML YAML content."""
+    sml_content: str
+
+class SMLImportResponse(BaseModel):
+    """Response model for SML import with parsed schema."""
+    tables: List[TableDef]
+    relationships: List[RelationshipDef]
+    dialect: str
+    message: str
+
+class SMLExportRequest(BaseModel):
+    """Request model for exporting schema to SML YAML."""
+    tables: List[TableDef]
+    relationships: List[RelationshipDef]
+    dialect: str
+    project_name: Optional[str] = None
+
+class SMLExportResponse(BaseModel):
+    """Response model for SML export with generated YAML."""
+    sml_content: str
+    filename: str
+

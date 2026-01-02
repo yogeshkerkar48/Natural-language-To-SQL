@@ -2,8 +2,23 @@
   <div class="schema-builder">
     <div class="header">
       <h3><span class="icon">📋</span> Define Tables</h3>
-      <button @click="addTable" class="btn-primary-sm">+ Add Table</button>
+      <div class="header-actions-group">
+        <button @click="showImportModal = true" class="btn-secondary-sm" title="Import Schema from YAML">
+          📥 Import
+        </button>
+        <button @click="exportSchema" class="btn-secondary-sm" title="Export Schema to YAML" :disabled="tables.length === 0">
+          📤 Export
+        </button>
+        <button @click="addTable" class="btn-primary-sm">+ Add Table</button>
+      </div>
     </div>
+    
+    <!-- SML Import Modal -->
+    <SMLImportModal 
+      :isOpen="showImportModal" 
+      @close="showImportModal = false"
+      @import="handleImport"
+    />
 
     <div v-if="tables.length === 0" class="empty-state">
       <p>No tables defined. Click "Add Table" to start building your schema.</p>
@@ -248,11 +263,21 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue';
+import SMLImportModal from './SMLImportModal.vue';
+import api from '../services/api';
 
 const props = defineProps({
   modelValue: {
     type: Array,
     required: true
+  },
+  databaseType: {
+    type: String,
+    default: 'MySQL'
+  },
+  projectName: {
+    type: String,
+    default: null
   }
 });
 
@@ -260,6 +285,55 @@ const emit = defineEmits(['update:modelValue']);
 
 // Local copy of tables to mutate
 const tables = ref(props.modelValue || []);
+
+// SML Import/Export state
+const showImportModal = ref(false);
+
+// Import/Export methods
+const handleImport = (importedData) => {
+  // Confirm before replacing existing schema
+  if (tables.value.length > 0) {
+    const confirmed = confirm('This will replace your current schema. Continue?');
+    if (!confirmed) return;
+  }
+  
+  // Convert imported tables to local format with editing state
+  tables.value = importedData.tables.map(table => ({
+    ...table,
+    isEditing: false,
+    validationError: null,
+    generalError: null
+  }));
+  
+  update();
+  alert(`Successfully imported ${importedData.tables.length} tables!`);
+};
+
+const exportSchema = async () => {
+  try {
+    const response = await api.exportSML(
+      tables.value,
+      [], // Relationships are extracted from foreign keys
+      props.databaseType,
+      props.projectName
+    );
+    
+    // Create and download file
+    const blob = new Blob([response.data.sml_content], { type: 'text/yaml' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = response.data.filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    alert('Schema exported successfully!');
+  } catch (error) {
+    alert('Failed to export schema: ' + (error.response?.data?.detail || error.message));
+  }
+};
 
 // Data type options
 const numericTypes = ['INT', 'BIGINT', 'SMALLINT', 'TINYINT', 'DECIMAL', 'FLOAT', 'DOUBLE'];
@@ -658,6 +732,9 @@ const saveAllTables = () => {
 
 const getFullType = (col) => {
   if (!col.type) return '';
+  // If type already has params (from update loop), don't append again
+  if (col.type.includes('(')) return col.type;
+  
   let full = col.type;
   if (col.precision && col.precision.toString().trim() !== '') {
     full += `(${col.precision}${col.scale && col.scale.toString().trim() !== '' ? `,${col.scale}` : ''})`;
@@ -692,6 +769,12 @@ const getFullType = (col) => {
   align-items: center;
   gap: 0.5rem;
   margin: 0;
+}
+
+.header-actions-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 .empty-state {

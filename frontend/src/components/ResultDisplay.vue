@@ -6,6 +6,9 @@
         <div class="validation-badge" :class="result.is_valid ? 'valid' : 'invalid'">
           {{ result.is_valid ? '✓ Valid SQL' : '✗ Invalid SQL' }}
         </div>
+        <div v-if="result.from_cache" class="cache-badge" :title="'Matched with: ' + result.original_question">
+          🚀 Instant Result ({{ (result.cache_similarity * 100).toFixed(0) }}% match)
+        </div>
       </div>
 
       <pre class="code-block"><code>{{ result.sql }}</code></pre>
@@ -177,6 +180,26 @@ h3 {
 .invalid { 
   background: #fee2e2; 
   color: #991b1b; 
+}
+
+.cache-badge {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  color: #1d4ed8;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid #bfdbfe;
+  cursor: help;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .error-msg { 

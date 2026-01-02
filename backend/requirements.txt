@@ -8,3 +8,7 @@ sqlalchemy
 psycopg2-binary
 passlib[bcrypt]
 python-jose[cryptography]
+pyyaml
+sentence-transformers
+scikit-learn
+numpy

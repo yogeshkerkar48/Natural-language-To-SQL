@@ -75,5 +75,16 @@ export default {
   },
   deleteQueryHistory(id) {
     return apiClient.delete(`/history/${id}`);
+  },
+  importSML(smlContent) {
+    return apiClient.post('/schema/import', { sml_content: smlContent });
+  },
+  exportSML(tables, relationships, dialect, projectName = null) {
+    return apiClient.post('/schema/export', {
+      tables,
+      relationships,
+      dialect,
+      project_name: projectName
+    });
   }
 };

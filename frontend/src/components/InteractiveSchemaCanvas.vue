@@ -499,6 +499,9 @@ onMounted(() => {
 });
 const getFullType = (col) => {
   if (!col.type) return '';
+  // If type already has params (from SchemaBuilder update), don't append again
+  if (col.type.includes('(')) return col.type;
+  
   let full = col.type;
   if (col.precision && col.precision.toString().trim() !== '') {
     full += `(${col.precision}${col.scale && col.scale.toString().trim() !== '' ? `,${col.scale}` : ''})`;
