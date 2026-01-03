@@ -281,7 +281,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue', 'schema-imported']);
 
 // Local copy of tables to mutate
 const tables = ref(props.modelValue || []);
@@ -306,6 +306,7 @@ const handleImport = (importedData) => {
   }));
   
   update();
+  emit('schema-imported');
   alert(`Successfully imported ${importedData.tables.length} tables!`);
 };
 

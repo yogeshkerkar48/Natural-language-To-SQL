@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.auth import hash_password, verify_password, create_access_token, get_current_user
 from app.models.user import User
-from app.schemas.user import UserCreate, UserLogin, UserResponse, Token
+from app.schemas.user import UserCreate, UserLogin, UserResponse, Token, UserPasswordUpdate
 
 router = APIRouter()
 
@@ -85,3 +85,26 @@ def get_current_user_info(current_user: User = Depends(get_current_user)):
     Requires valid JWT token in Authorization header.
     """
     return current_user
+
+
+@router.post("/change-password", status_code=status.HTTP_200_OK)
+def change_password(
+    data: UserPasswordUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Change password for the current authenticated user.
+    """
+    # Verify old password
+    if not verify_password(data.old_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect old password"
+        )
+    
+    # Update to new password
+    current_user.hashed_password = hash_password(data.new_password)
+    db.commit()
+    
+    return {"message": "Password updated successfully"}

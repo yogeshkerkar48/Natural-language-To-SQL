@@ -83,11 +83,21 @@ def generate_query(
             schema_hash = sem_cache.generate_schema_hash(request.tables, request.relationships, request.database_type)
             question_embedding = sem_cache.generate_embedding(request.question)
             
+            print(f"DEBUG: Schema Hash: {schema_hash}")
+            print(f"DEBUG: Dialect: {request.database_type}")
+            
             # Fetch candidates from database for this schema
             candidates = db.query(SemanticQueryCache).filter(
                 SemanticQueryCache.schema_hash == schema_hash,
                 SemanticQueryCache.database_type == request.database_type
             ).all()
+            
+            print(f"DEBUG: Found {len(candidates)} candidates in cache")
+            
+            if candidates:
+                raw_type = type(candidates[0].question_embedding)
+                print(f"DEBUG: Raw DB Embedding Type: {raw_type}")
+                print(f"DEBUG: Raw DB Embedding Preview: {str(candidates[0].question_embedding)[:50]}")
             
             # Convert candidates to the format expected by find_similar_query
             candidate_dicts = [
@@ -101,12 +111,18 @@ def generate_query(
                 } for c in candidates
             ]
             
-            match_result, similarity = sem_cache.find_similar_query(
+            result_tuple = sem_cache.find_similar_query(
                 request.question,
                 question_embedding,
                 schema_hash,
                 candidate_dicts
             )
+            
+            if result_tuple and isinstance(result_tuple, tuple) and len(result_tuple) == 2:
+                 match_result, similarity = result_tuple
+            else:
+                 print(f"DEBUG: find_similar_query returned unexpected value: {result_tuple}")
+                 match_result, similarity = None, 0.0
             
             # Capture for debug printing
             best_similarity = similarity
@@ -285,8 +301,12 @@ def list_projects(
     current_user: User = Depends(get_current_user)
 ):
     """List all saved projects for the current user."""
-    from sqlalchemy import func
-    return db.query(Project).filter(Project.user_id == current_user.id).order_by(func.coalesce(Project.updated_at, Project.created_at).desc()).all()
+    try:
+        from sqlalchemy import func
+        return db.query(Project).filter(Project.user_id == current_user.id).order_by(func.coalesce(Project.updated_at, Project.created_at).desc()).all()
+    except Exception as e:
+        print(f"ERROR: list_projects failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list projects: {str(e)}")
 
 @router.get("/projects/{project_id}", response_model=ProjectDetailResponse)
 def get_project(
@@ -295,13 +315,19 @@ def get_project(
     current_user: User = Depends(get_current_user)
 ):
     """Get a specific project state."""
-    db_project = db.query(Project).filter(
-        Project.id == project_id,
-        Project.user_id == current_user.id
-    ).first()
-    if not db_project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    return db_project
+    try:
+        db_project = db.query(Project).filter(
+            Project.id == project_id,
+            Project.user_id == current_user.id
+        ).first()
+        if not db_project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        return db_project
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR: get_project failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get project: {str(e)}")
 
 @router.delete("/projects/{project_id}")
 def delete_project(
@@ -310,15 +336,21 @@ def delete_project(
     current_user: User = Depends(get_current_user)
 ):
     """Delete a project."""
-    db_project = db.query(Project).filter(
-        Project.id == project_id,
-        Project.user_id == current_user.id
-    ).first()
-    if not db_project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    db.delete(db_project)
-    db.commit()
-    return {"message": "Project deleted"}
+    try:
+        db_project = db.query(Project).filter(
+            Project.id == project_id,
+            Project.user_id == current_user.id
+        ).first()
+        if not db_project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        db.delete(db_project)
+        db.commit()
+        return {"message": "Project deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR: delete_project failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete project: {str(e)}")
 
 # Query History Endpoints
 

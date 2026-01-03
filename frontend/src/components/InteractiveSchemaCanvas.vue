@@ -135,7 +135,7 @@
                 <text :x="tableWidth - 10" y="22" class="column-type" text-anchor="end">{{ getFullType(col) }}</text>
                 
                 <!-- Drag handle -->
-                <text x="tableWidth / 2" y="22" class="drag-indicator" text-anchor="middle" opacity="0.3">⋮⋮</text>
+                <text :x="tableWidth / 2" y="22" class="drag-indicator" text-anchor="middle" opacity="0.3">⋮⋮</text>
               </g>
             </g>
           </g>

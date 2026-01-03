@@ -15,6 +15,11 @@
           <div class="detail-value">{{ email }}</div>
         </div>
         <div class="menu-divider"></div>
+        <button class="menu-item password-btn" @click="showPasswordModal = true">
+          <span class="icon">🔐</span>
+          Change Password
+        </button>
+        <div class="menu-divider"></div>
         <button class="menu-item logout-btn" @click="handleLogout">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M6 14H3C2.44772 14 2 13.5523 2 13V3C2 2.44772 2.44772 2 3 2H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -24,6 +29,12 @@
         </button>
       </div>
     </transition>
+
+    <ChangePasswordModal 
+      :is-open="showPasswordModal" 
+      @close="showPasswordModal = false"
+      @success="onPasswordSuccess"
+    />
   </div>
 </template>
 
@@ -31,6 +42,7 @@
 import { ref, computed, onMounted, onUnmounted, toRefs } from 'vue';
 import { useRouter } from 'vue-router';
 import authService from '../services/authService';
+import ChangePasswordModal from './ChangePasswordModal.vue';
 
 const props = defineProps({
   user: {
@@ -41,6 +53,7 @@ const props = defineProps({
 
 const router = useRouter();
 const isOpen = ref(false);
+const showPasswordModal = ref(false);
 const localUser = ref(null);
 
 const displayUser = computed(() => props.user || localUser.value);
@@ -59,6 +72,10 @@ const closeMenu = () => {
 const handleLogout = () => {
   authService.logout();
   router.push('/login');
+};
+
+const onPasswordSuccess = () => {
+  isOpen.value = false; // Close menu
 };
 
 // Load user from localStorage if not provided via prop
@@ -196,6 +213,26 @@ const handleClickOutside = (event) => {
 
 .logout-btn:hover {
   background: #fee !important;
+}
+
+.password-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: none;
+  color: #3b82f6;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.password-btn:hover {
+  background: #eff6ff !important;
+}
+
+.password-btn .icon {
+  font-size: 1.1rem;
 }
 
 .logout-btn svg {

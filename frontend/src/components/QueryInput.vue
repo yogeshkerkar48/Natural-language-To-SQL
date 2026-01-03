@@ -20,10 +20,14 @@
     </div>
 
     <!-- Visual Schema Builder -->
-    <SchemaBuilder v-model="tables" />
+    <SchemaBuilder 
+      :key="`builder-${componentKey}`" 
+      v-model="tables" 
+      @schema-imported="handleSchemaImported"
+    />
 
     <!-- Interactive Schema Diagram with Drag & Drop -->
-    <InteractiveSchemaCanvas :tables="tables" :relationships="relationships" @update:relationships="relationships = $event" />
+    <InteractiveSchemaCanvas :key="`canvas-${componentKey}`" :tables="tables" :relationships="relationships" @update:relationships="relationships = $event" />
 
     <!-- Question Input -->
     <div class="card query-card">
@@ -78,16 +82,24 @@
       @load="handleLoadProject"
       @delete="handleDeleteProject"
     />
+    <ConfirmationModal
+      :show="showConfirmModal"
+      :title="confirmTitle"
+      :message="confirmMessage"
+      @close="showConfirmModal = false"
+      @confirm="handleConfirm"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, nextTick } from 'vue';
 import api from '../services/api';
 import SchemaBuilder from './SchemaBuilder.vue';
 import InteractiveSchemaCanvas from './InteractiveSchemaCanvas.vue';
 import SaveProjectModal from './SaveProjectModal.vue';
 import LoadProjectModal from './LoadProjectModal.vue';
+import ConfirmationModal from './ConfirmationModal.vue';
 import QueryHistory from './QueryHistory.vue';
 
 const historyRef = ref(null);
@@ -99,14 +111,18 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['sql-generated', 'sql-loading']);
-
 // Structured state (arrays/objects instead of strings)
 const tables = ref([]);
 const relationships = ref([]);
 const question = ref('');
 const databaseType = ref('MySQL');
 const generating = ref(false);
+const result = ref(null);
+const loading = ref(false);
+const error = ref(null);
+const projects = ref([]);
+
+const emit = defineEmits(['sql-generated', 'sql-loading']);
 
 // Persistence state
 const showSaveModal = ref(false);
@@ -118,6 +134,13 @@ const savedProjects = ref([]);
 const lastGeneratedSql = ref('');
 const currentProjectName = ref('');
 const currentProjectId = ref(null);
+const componentKey = ref(0); // Key to force re-render of components
+
+// Modal State
+const showConfirmModal = ref(false);
+const confirmTitle = ref('');
+const confirmMessage = ref('');
+const confirmAction = ref(null);
 
 // Listen for generated SQL to save it in state
 watch(() => lastGeneratedSql.value, (newVal) => {
@@ -223,6 +246,9 @@ const handleLoadProject = async (id) => {
     question.value = state.question || '';
     databaseType.value = state.databaseType || 'MySQL';
     
+    // Force refresh of child components
+    componentKey.value++;
+    
     if (state.sql) {
       emit('sql-generated', { 
         sql: state.sql, 
@@ -242,27 +268,64 @@ const handleLoadProject = async (id) => {
 };
 
 const unloadProject = () => {
-  if (confirm('Are you sure you want to unload the current project? Any unsaved changes will be lost.')) {
+  confirmTitle.value = 'Unload Project';
+  confirmMessage.value = 'Are you sure you want to unload the current project? Any unsaved changes will be lost.';
+  confirmAction.value = async () => {
     currentProjectName.value = '';
     currentProjectId.value = null;
     tables.value = [];
     relationships.value = [];
     question.value = '';
     lastGeneratedSql.value = '';
+    
+    await nextTick();
+    componentKey.value++; // Force refresh
     emit('sql-generated', null);
-  }
+  };
+  showConfirmModal.value = true;
 };
 
-const handleDeleteProject = async (id) => {
-  if (!confirm('Are you sure you want to delete this project?')) return;
-  
-  try {
-    await api.deleteProject(id);
-    await fetchProjects();
-  } catch (error) {
-    console.error('Failed to delete project:', error);
-    alert('Delete failed');
+const handleDeleteProject = (id) => {
+  confirmTitle.value = 'Delete Project';
+  confirmMessage.value = 'Are you sure you want to permanently delete this project? This action cannot be undone.';
+  confirmAction.value = async () => {
+    try {
+      await api.deleteProject(id);
+      await fetchProjects();
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      alert('Delete failed: ' + (error.response?.data?.detail || error.message));
+    }
+  };
+  showConfirmModal.value = true;
+};
+
+const handleConfirm = async () => {
+  if (confirmAction.value) {
+    await confirmAction.value();
   }
+  showConfirmModal.value = false;
+};
+
+const handleSchemaImported = async () => {
+  console.log('QueryInput: Schema imported, resetting project state...');
+  
+  // Reset project state to treat as new project
+  currentProjectId.value = null;
+  currentProjectName.value = '';
+  relationships.value = [];
+  question.value = '';
+  lastGeneratedSql.value = '';
+  
+  // Reset History
+  if (historyRef.value && historyRef.value.clearSelection) {
+      historyRef.value.clearSelection();
+  }
+  
+  await nextTick();
+  componentKey.value++; // Force re-render of canvas and builder
+  
+  console.log('QueryInput: State reset complete');
 };
 </script>
 

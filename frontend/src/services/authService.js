@@ -93,6 +93,19 @@ export default {
     },
 
     /**
+     * Change user password
+     */
+    async changePassword(passwordData) {
+        const token = this.getToken();
+        const response = await authClient.post('/change-password', passwordData, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        return response.data;
+    },
+
+    /**
      * Check if user is authenticated (using reactive state)
      */
     isAuthenticated() {

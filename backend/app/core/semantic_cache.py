@@ -43,8 +43,13 @@ class SemanticCache:
         """Lazy load the sentence transformer model."""
         if self._model is None:
             print(f"Loading semantic cache model: {self.model_name}...")
-            self._model = SentenceTransformer(self.model_name)
-            print("Model loaded successfully!")
+            try:
+                self._model = SentenceTransformer(self.model_name)
+                print("Model loaded successfully!")
+            except Exception as e:
+                print(f"WARNING: Failed to load semantic cache model: {e}")
+                print("Semantic cache will be DISABLED for this session.")
+                self._model = False # Mark as failed to avoid retrying
         return self._model
     
     def generate_embedding(self, text: str) -> List[float]:
@@ -57,8 +62,17 @@ class SemanticCache:
         Returns:
             Embedding vector as list of floats
         """
-        embedding = self.model.encode(text, convert_to_numpy=True)
-        return embedding.tolist()
+        if not self.model: # Check if model loaded successfully
+             # Return dummy zero vector if model failed
+             # Size 384 is typical for all-MiniLM-L6-v2
+             return [0.0] * 384
+             
+        try:
+            embedding = self.model.encode(text, convert_to_numpy=True)
+            return embedding.tolist()
+        except Exception as e:
+            print(f"Error generating embedding: {e}")
+            return [0.0] * 384
     
     def compute_similarity(
         self,
@@ -139,14 +153,24 @@ class SemanticCache:
             Tuple of (best_match, similarity_score) or None if no match
         """
         if not cached_queries:
-            return None
+            return (None, 0.0)
+            
+        # Check for zero vector (model failed)
+        if not any(question_embedding):
+            print("DEBUG: Zero vector detected (Semantic Cache Disabled)")
+            return (None, 0.0)
         
         best_match = None
         best_similarity = 0.0
         
-        for cached in cached_queries:
+        for i, cached in enumerate(cached_queries):
+            is_first = (i == 0)
+            if is_first:
+                print(f"DEBUG: Checking first candidate ID={cached.get('id')}")
+            
             # Skip if different schema
             if cached.get('schema_hash') != schema_hash:
+                if is_first: print(f"DEBUG: Schema mismatch! {cached.get('schema_hash')} != {schema_hash}")
                 continue
             
             # Calculate similarity
@@ -158,9 +182,11 @@ class SemanticCache:
                     cached_embedding = json.loads(cached_embedding)
                     cached['question_embedding'] = cached_embedding 
                 except json.JSONDecodeError:
+                    if is_first: print("DEBUG: JSON decode error")
                     continue
 
             if not cached_embedding:
+                if is_first: print("DEBUG: No embedding found")
                 continue
                 
             similarity = self.compute_similarity(
@@ -168,6 +194,9 @@ class SemanticCache:
                 cached_embedding
             )
             
+            if is_first:
+                print(f"DEBUG: Calculated Similarity: {similarity}")
+
             # Track best match
             if similarity > best_similarity:
                 best_similarity = similarity

@@ -26,10 +26,11 @@ CRITICAL RULES - DO NOT VIOLATE:
 13. For COUNT, use COUNT(*) or COUNT(column_name) - never use COUNT() without arguments
 14. For aggregate functions (COUNT, SUM, AVG, MAX, MIN), always provide the argument
 15. Pay attention to column data types (e.g., wrap strings in quotes, do NOT wrap numbers)
-16. If asked to CREATE a table, generate the CREATE TABLE statement using the EXACT schema definition provided below, INCLUDING all constraints (PRIMARY KEY, UNIQUE, NOT NULL, DEFAULT, CHECK, and FOREIGN KEY).
-17. DO NOT omit any constraints or keys provided in the schema. If a column is listed as a FOREIGN KEY or has a REFERENCE, you MUST include it in the SQL.
-18. For complex queries requiring multiple steps (e.g., "top N per group", "rankings"), ALWAYS use Common Table Expressions (CTEs) with the `WITH ... AS (...)` syntax
-19. When using Window Functions (e.g., `ROW_NUMBER()`, `RANK()`), ensure they are used within a CTE or subquery as appropriate for {database_type}
+16. If asked to CREATE a table, ONLY generate the CREATE TABLE statement for tables EXPLICITLY defined in the schema below.
+17. If asked to create a NEW table that is NOT in the schema, return "ERROR: Cannot generate query with provided schema". Do NOT invent new schemas.
+18. DO NOT omit any constraints or keys provided in the schema. If a column is listed as a FOREIGN KEY or has a REFERENCE, you MUST include it in the SQL.
+19. For complex queries requiring multiple steps (e.g., "top N per group", "rankings"), ALWAYS use Common Table Expressions (CTEs) with the `WITH ... AS (...)` syntax
+20. When using Window Functions (e.g., `ROW_NUMBER()`, `RANK()`), ensure they are used within a CTE or subquery as appropriate for {database_type}
 
 If you cannot generate a valid query with the given schema and relationships, return: "ERROR: Cannot generate query with provided schema"
 """

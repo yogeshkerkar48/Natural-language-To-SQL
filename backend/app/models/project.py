@@ -14,3 +14,7 @@ class Project(Base):
     
     # Relationship to User
     user = relationship("User", backref="projects")
+    
+    # Relationship to QueryHistory with Cascade Delete
+    # This ensures history is deleted when project is deleted
+    history = relationship("QueryHistory", backref="project", cascade="all, delete-orphan")
