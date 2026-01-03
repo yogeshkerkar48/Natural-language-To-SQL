@@ -306,7 +306,7 @@ const handleImport = (importedData) => {
   }));
   
   update();
-  emit('schema-imported');
+  emit('schema-imported', importedData.dialect);
   alert(`Successfully imported ${importedData.tables.length} tables!`);
 };
 

@@ -58,7 +58,7 @@
       ></textarea>
       
       <!-- Query History -->
-      <QueryHistory ref="historyRef" :project-id="currentProjectId" @select="question = $event" />
+      <QueryHistory ref="historyRef" :project-id="currentProjectId" :schema-hash="currentSchemaHash" @select="question = $event" />
       <button @click="generateSQL" :disabled="generating || !question || tables.length === 0" class="btn accent">
         <span v-if="generating" class="spinner"></span>
         {{ generating ? 'Generating SQL...' : '🚀 Generate SQL' }}
@@ -142,6 +142,48 @@ const confirmTitle = ref('');
 const confirmMessage = ref('');
 const confirmAction = ref(null);
 
+const currentSchemaHash = ref(null);
+
+const computeSchemaHash = async () => {
+  if (tables.value.length === 0) {
+    currentSchemaHash.value = null;
+    return;
+  }
+  
+  // Replicate backend sorting and structure exactly
+  const schema_dict = {
+    tables: tables.value.map(t => ({
+      name: t.name,
+      columns: (t.columns || []).map(c => ({
+        name: c.name,
+        type: c.type
+      })).sort((a, b) => a.name.localeCompare(b.name))
+    })).sort((a, b) => a.name.localeCompare(b.name)),
+    relationships: relationships.value.map(r => ({
+      from: `${r.from_table}.${r.from_column}`,
+      to: `${r.to_table}.${r.to_column}`
+    })).sort((a, b) => (a.from + a.to).localeCompare(b.from + b.to)),
+    dialect: databaseType.value
+  };
+
+  const schemaStr = JSON.stringify(schema_dict);
+  
+  try {
+    const msgUint8 = new TextEncoder().encode(schemaStr);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    currentSchemaHash.value = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    console.log('QueryInput: New Schema Hash:', currentSchemaHash.value);
+  } catch (e) {
+    console.error('Hash computation failed:', e);
+  }
+};
+
+// Update hash when schema changes
+watch([tables, relationships, databaseType], () => {
+  computeSchemaHash();
+}, { deep: true, immediate: true });
+
 // Listen for generated SQL to save it in state
 watch(() => lastGeneratedSql.value, (newVal) => {
   // We'll keep track of the last generated SQL to save it in the project state
@@ -166,9 +208,12 @@ const generateSQL = async () => {
       databaseType: databaseType.value 
     });
     
-    // Refresh history after successful generation
+    // Refresh history after successful generation // Refresh history list
     if (historyRef.value) {
-      historyRef.value.refresh();
+      computeSchemaHash();
+      setTimeout(() => {
+          historyRef.value.refresh();
+      }, 100);
     }
   } catch (error) {
     console.error(error);
@@ -334,12 +379,18 @@ const extractRelationshipsFromTables = (tbls) => {
   return extracted;
 };
 
-const handleSchemaImported = async () => {
+const handleSchemaImported = async (importedDialect) => {
   console.log('QueryInput: Schema imported, resetting project state...');
   
   // Reset project state to treat as new project
   currentProjectId.value = null;
   currentProjectName.value = '';
+  
+  // Sync dialect if provided in the SML script
+  if (importedDialect) {
+    console.log(`QueryInput: Syncing dialect to ${importedDialect}`);
+    databaseType.value = importedDialect;
+  }
   
   // Automatically extract relationships from the imported tables
   relationships.value = extractRelationshipsFromTables(tables.value);

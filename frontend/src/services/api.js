@@ -69,8 +69,10 @@ export default {
       database_type
     });
   },
-  getQueryHistory(projectId = null) {
-    const params = projectId ? { project_id: projectId } : {};
+  getQueryHistory(projectId = null, schemaHash = null) {
+    const params = {};
+    if (projectId) params.project_id = projectId;
+    if (schemaHash) params.schema_hash = schemaHash;
     return apiClient.get('/history', { params });
   },
   deleteQueryHistory(id) {

@@ -180,7 +180,8 @@ def generate_query(
                 question=request.question,
                 sql_generated=sql,
                 database_type=request.database_type,
-                project_id=request.project_id
+                project_id=request.project_id,
+                schema_hash=schema_hash
             )
             db.add(history_entry)
             db.commit()
@@ -357,15 +358,19 @@ def delete_project(
 @router.get("/history", response_model=List[QueryHistoryResponse])
 def get_query_history(
     project_id: Optional[int] = None,
+    schema_hash: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     limit: int = 20
 ):
-    """Get the recent high-quality query history for the current user, optionally filtered by project."""
+    """Get the recent high-quality query history for the current user, optionally filtered by project or schema."""
     query = db.query(QueryHistory).filter(QueryHistory.user_id == current_user.id)
     
     if project_id:
         query = query.filter(QueryHistory.project_id == project_id)
+    
+    if schema_hash:
+        query = query.filter(QueryHistory.schema_hash == schema_hash)
         
     return query.order_by(QueryHistory.created_at.desc()).limit(limit).all()
 

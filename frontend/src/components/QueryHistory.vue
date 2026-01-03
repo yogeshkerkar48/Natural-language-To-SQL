@@ -34,6 +34,10 @@ const props = defineProps({
   projectId: {
     type: Number,
     default: null
+  },
+  schemaHash: {
+    type: String,
+    default: null
   }
 });
 
@@ -41,7 +45,7 @@ const history = ref([]);
 
 const fetchHistory = async () => {
   try {
-    const response = await api.getQueryHistory(props.projectId);
+    const response = await api.getQueryHistory(props.projectId, props.schemaHash);
     history.value = response.data;
   } catch (error) {
     console.error('Failed to fetch history:', error);
@@ -63,7 +67,7 @@ const truncate = (text) => {
   return text.length > 40 ? text.substring(0, 37) + '...' : text;
 };
 
-watch(() => props.projectId, () => {
+watch([() => props.projectId, () => props.schemaHash], () => {
   fetchHistory();
 });
 

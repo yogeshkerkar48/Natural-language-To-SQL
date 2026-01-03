@@ -456,17 +456,43 @@ const getRelationshipPath = (rel) => {
   
   if (!fromTable || !toTable) return '';
   
-  const fromColIdx = fromTable.columns.findIndex(c => c.name === rel.from_column);
-  const toColIdx = toTable.columns.findIndex(c => c.name === rel.to_column);
+  // Case-insensitive column matching
+  const fromColIdx = fromTable.columns.findIndex(c => c.name.toLowerCase() === rel.from_column.toLowerCase());
+  const toColIdx = toTable.columns.findIndex(c => c.name.toLowerCase() === rel.to_column.toLowerCase());
   
-  const x1 = fromTable.x + tableWidth;
-  const y1 = fromTable.y + headerHeight + fromColIdx * columnHeight + columnHeight / 2;
-  const x2 = toTable.x;
-  const y2 = toTable.y + headerHeight + toColIdx * columnHeight + columnHeight / 2;
+  // Vertical positions (center of column row, or top/header if not found)
+  const y1 = fromTable.y + headerHeight + (fromColIdx >= 0 ? fromColIdx : 0) * columnHeight + columnHeight / 2;
+  const y2 = toTable.y + headerHeight + (toColIdx >= 0 ? toColIdx : 0) * columnHeight + columnHeight / 2;
   
-  // Create curved path
-  const midX = (x1 + x2) / 2;
-  return `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
+  // Determine closest horizontal sides
+  const fromTableLeft = fromTable.x;
+  const fromTableRight = fromTable.x + tableWidth;
+  const toTableLeft = toTable.x;
+  const toTableRight = toTable.x + tableWidth;
+  
+  let x1, x2;
+  
+  if (fromTableRight < toTableLeft) {
+    // From is to the left of To
+    x1 = fromTableRight;
+    x2 = toTableLeft;
+  } else if (fromTableLeft > toTableRight) {
+    // From is to the right of To
+    x1 = fromTableLeft;
+    x2 = toTableRight;
+  } else {
+    // Tables overlap horizontally or are stacked, use centers simplified
+    x1 = fromTableRight;
+    x2 = toTableLeft;
+  }
+  
+  // Create curved path with control points relative to distance
+  const deltaX = Math.abs(x2 - x1);
+  const curvature = Math.min(deltaX * 0.5, 100);
+  const cp1x = x1 + (x2 > x1 ? curvature : -curvature);
+  const cp2x = x2 - (x2 > x1 ? curvature : -curvature);
+  
+  return `M ${x1} ${y1} C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`;
 };
 
 // Get relationship label position
@@ -476,13 +502,26 @@ const getRelationshipLabelPosition = (rel) => {
   
   if (!fromTable || !toTable) return { x: 0, y: 0 };
   
-  const fromColIdx = fromTable.columns.findIndex(c => c.name === rel.from_column);
-  const toColIdx = toTable.columns.findIndex(c => c.name === rel.to_column);
+  const fromColIdx = fromTable.columns.findIndex(c => c.name.toLowerCase() === rel.from_column.toLowerCase());
+  const toColIdx = toTable.columns.findIndex(c => c.name.toLowerCase() === rel.to_column.toLowerCase());
   
-  const x1 = fromTable.x + tableWidth;
-  const y1 = fromTable.y + headerHeight + fromColIdx * columnHeight + columnHeight / 2;
-  const x2 = toTable.x;
-  const y2 = toTable.y + headerHeight + toColIdx * columnHeight + columnHeight / 2;
+  const y1 = fromTable.y + headerHeight + (fromColIdx >= 0 ? fromColIdx : 0) * columnHeight + columnHeight / 2;
+  const y2 = toTable.y + headerHeight + (toColIdx >= 0 ? toColIdx : 0) * columnHeight + columnHeight / 2;
+
+  // Simplistic midpoint for label
+  const fromTableLeft = fromTable.x;
+  const fromTableRight = fromTable.x + tableWidth;
+  const toTableLeft = toTable.x;
+  const toTableRight = toTable.x + tableWidth;
+  
+  let x1, x2;
+  if (fromTableRight < toTableLeft) {
+    x1 = fromTableRight; x2 = toTableLeft;
+  } else if (fromTableLeft > toTableRight) {
+    x1 = fromTableLeft; x2 = toTableRight;
+  } else {
+    x1 = fromTableRight; x2 = toTableLeft;
+  }
   
   return {
     x: (x1 + x2) / 2,

@@ -11,6 +11,7 @@ class QueryHistory(Base):
     sql_generated = Column(String, nullable=True)
     database_type = Column(String(50), nullable=True)
     project_id = Column(Integer, ForeignKey("nl2sql_projects.id"), nullable=True)
+    schema_hash = Column(String(64), index=True, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
