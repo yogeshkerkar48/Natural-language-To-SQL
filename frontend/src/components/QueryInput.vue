@@ -307,13 +307,43 @@ const handleConfirm = async () => {
   showConfirmModal.value = false;
 };
 
+const extractRelationshipsFromTables = (tbls) => {
+  const extracted = [];
+  tbls.forEach(table => {
+    table.columns.forEach(col => {
+      if (col.isForeignKey && col.fkTable && col.fkColumn) {
+        // Avoid duplicates
+        const exists = extracted.some(r => 
+          r.from_table === table.name && 
+          r.from_column === col.name && 
+          r.to_table === col.fkTable && 
+          r.to_column === col.fkColumn
+        );
+        
+        if (!exists) {
+          extracted.push({
+            from_table: table.name,
+            from_column: col.name,
+            to_table: col.fkTable,
+            to_column: col.fkColumn
+          });
+        }
+      }
+    });
+  });
+  return extracted;
+};
+
 const handleSchemaImported = async () => {
   console.log('QueryInput: Schema imported, resetting project state...');
   
   // Reset project state to treat as new project
   currentProjectId.value = null;
   currentProjectName.value = '';
-  relationships.value = [];
+  
+  // Automatically extract relationships from the imported tables
+  relationships.value = extractRelationshipsFromTables(tables.value);
+  
   question.value = '';
   lastGeneratedSql.value = '';
   
@@ -325,7 +355,7 @@ const handleSchemaImported = async () => {
   await nextTick();
   componentKey.value++; // Force re-render of canvas and builder
   
-  console.log('QueryInput: State reset complete');
+  console.log(`QueryInput: State reset complete. Extracted ${relationships.value.length} relationships.`);
 };
 </script>
 

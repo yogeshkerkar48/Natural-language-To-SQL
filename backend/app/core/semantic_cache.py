@@ -22,7 +22,7 @@ class SemanticCache:
     def __init__(
         self,
         model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
-        similarity_threshold: float = 0.85,
+        similarity_threshold: float = 0.92,
         max_cache_size: int = 1000
     ):
         """
@@ -197,6 +197,13 @@ class SemanticCache:
             if is_first:
                 print(f"DEBUG: Calculated Similarity: {similarity}")
 
+            # NEW: Keyword Validation for High-Impact words
+            # Help distinguish between "each class" and "class tenth"
+            if similarity >= self.similarity_threshold:
+                if not self._validate_keywords(question, cached.get('question', '')):
+                    print(f"DEBUG: Similarity {similarity:.2f} high, but keyword validation FAILED.")
+                    continue
+
             # Track best match
             if similarity > best_similarity:
                 best_similarity = similarity
@@ -207,6 +214,29 @@ class SemanticCache:
             return (best_match, best_similarity)
         
         return (None, best_similarity)
+
+    def _validate_keywords(self, q1: str, q2: str) -> bool:
+        """
+        Secondary validation to ensure high-impact words aren't mismatched.
+        Focuses on aggregate terms and potential entity values.
+        """
+        # List of words that strongly change the SQL structure/logic
+        impact_words = {
+            'each', 'every', 'all', 'total', 'average', 'avg', 'sum', 
+            'count', 'min', 'max', 'top', 'bottom', 'tenth', 'twelfth'
+        }
+        
+        q1_words = set(q1.lower().replace('?', '').split())
+        q2_words = set(q2.lower().replace('?', '').split())
+        
+        # Check if any impact word is in one but not the other
+        for word in impact_words:
+            if (word in q1_words and word not in q2_words) or \
+               (word in q2_words and word not in q1_words):
+                # If a structural word differs, it's likely a different intent
+                return False
+        
+        return True
     
     def should_cache(self, question: str) -> bool:
         """
