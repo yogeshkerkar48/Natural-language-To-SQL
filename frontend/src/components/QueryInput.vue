@@ -142,6 +142,18 @@ const confirmTitle = ref('');
 const confirmMessage = ref('');
 const confirmAction = ref(null);
 
+// Helper for deterministic JSON stringify (matches Python sort_keys=True)
+const sortObjectKeys = (obj) => {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(sortObjectKeys);
+  const sortedKeys = Object.keys(obj).sort();
+  const sortedObj = {};
+  sortedKeys.forEach(key => {
+    sortedObj[key] = sortObjectKeys(obj[key]);
+  });
+  return sortedObj;
+};
+
 const currentSchemaHash = ref(null);
 
 const computeSchemaHash = async () => {
@@ -162,11 +174,13 @@ const computeSchemaHash = async () => {
     relationships: relationships.value.map(r => ({
       from: `${r.from_table}.${r.from_column}`,
       to: `${r.to_table}.${r.to_column}`
-    })).sort((a, b) => (a.from + a.to).localeCompare(b.from + b.to)),
+    })).sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to)),
     dialect: databaseType.value
   };
 
-  const schemaStr = JSON.stringify(schema_dict);
+  const sorted_schema = sortObjectKeys(schema_dict);
+  const schemaStr = JSON.stringify(sorted_schema);
+  console.log('QueryInput: Hashing schema JSON:', schemaStr);
   
   try {
     const msgUint8 = new TextEncoder().encode(schemaStr);
@@ -210,7 +224,7 @@ const generateSQL = async () => {
     
     // Refresh history after successful generation // Refresh history list
     if (historyRef.value) {
-      computeSchemaHash();
+      await computeSchemaHash(); // Ensure hash is updated
       setTimeout(() => {
           historyRef.value.refresh();
       }, 100);
@@ -303,6 +317,9 @@ const handleLoadProject = async (id) => {
         suggestions: state.suggestions || null
       });
       lastGeneratedSql.value = state.sql;
+    } else {
+      emit('sql-generated', null);
+      lastGeneratedSql.value = '';
     }
 
     showLoadModal.value = false;
@@ -402,6 +419,9 @@ const handleSchemaImported = async (importedDialect) => {
   if (historyRef.value && historyRef.value.clearSelection) {
       historyRef.value.clearSelection();
   }
+  
+  // Clear displayed results
+  emit('sql-generated', null);
   
   await nextTick();
   componentKey.value++; // Force re-render of canvas and builder

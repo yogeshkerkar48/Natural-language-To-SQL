@@ -77,13 +77,18 @@ def generate_query(
         best_similarity = 0.0
         question_embedding = None
         schema_hash = None
+        from_cache = False
+        cache_similarity = 0.0
+        original_question = None
+        
+        # --- Semantic Cache & Schema Fingerprinting ---
+        sem_cache = get_semantic_cache()
+        schema_hash = sem_cache.generate_schema_hash(request.tables, request.relationships, request.database_type)
+        print(f"DEBUG: Schema Hash: {schema_hash}")
         
         if is_cache_enabled():
-            sem_cache = get_semantic_cache()
-            schema_hash = sem_cache.generate_schema_hash(request.tables, request.relationships, request.database_type)
             question_embedding = sem_cache.generate_embedding(request.question)
             
-            print(f"DEBUG: Schema Hash: {schema_hash}")
             print(f"DEBUG: Dialect: {request.database_type}")
             
             # Fetch candidates from database for this schema
@@ -138,42 +143,40 @@ def generate_query(
                 
                 print(f"CACHE HIT: Found similar question '{cache_hit.question}' with {best_similarity:.2f} similarity")
                 
-                # Validate the cached SQL (just to be safe)
-                is_valid, message = validate_sql(cache_hit.sql_generated, dialect=request.database_type)
+                sql = cache_hit.sql_generated
+                from_cache = True
+                cache_similarity = best_similarity
+                original_question = cache_hit.question
                 
-                return SQLResponse(
-                    sql=cache_hit.sql_generated,
-                    is_valid=is_valid,
-                    message=message,
-                    from_cache=True,
-                    cache_similarity=best_similarity,
-                    original_question=cache_hit.question
-                )
+                # Validate the cached SQL (just to be safe)
+                is_valid, message = validate_sql(sql, dialect=request.database_type)
             
-            print(f"CACHE MISS: Best similarity was {best_similarity:.4f} (Threshold: {get_similarity_threshold()})")
+            if not from_cache:
+                print(f"CACHE MISS: Best similarity was {best_similarity:.4f} (Threshold: {get_similarity_threshold()})")
         # --- End Cache Logic ---
 
-        # Generate SQL using the model
-        sql = model_service.generate_sql(formatted_schema, request.question, database_type=request.database_type)
+        # Generate SQL using the model if not from cache
+        if not from_cache:
+            sql = model_service.generate_sql(formatted_schema, request.question, database_type=request.database_type)
+            
+            # Validate the generated SQL
+            is_valid, message = validate_sql(sql, dialect=request.database_type)
+            
+            # Store in semantic cache if result is valid
+            if is_cache_enabled() and is_valid and question_embedding is not None and schema_hash is not None:
+                new_cache_entry = SemanticQueryCache(
+                    question=request.question,
+                    question_embedding=question_embedding,
+                    schema_hash=schema_hash,
+                    sql_generated=sql,
+                    database_type=request.database_type,
+                    user_id=current_user.id if current_user else None
+                )
+                db.add(new_cache_entry)
+                db.commit()
+                print("CACHE MISS: New query stored in semantic cache")
         
-        # Validate the generated SQL
-        is_valid, message = validate_sql(sql, dialect=request.database_type)
-        
-        # Store in semantic cache if result is valid
-        if is_cache_enabled() and is_valid and question_embedding and schema_hash:
-            new_cache_entry = SemanticQueryCache(
-                question=request.question,
-                question_embedding=question_embedding,
-                schema_hash=schema_hash,
-                sql_generated=sql,
-                database_type=request.database_type,
-                user_id=current_user.id if current_user else None
-            )
-            db.add(new_cache_entry)
-            db.commit()
-            print("CACHE MISS: New query stored in semantic cache")
-        
-        # Log to history if user is logged in
+        # Log to history if user is logged in (regardless of cache status)
         if current_user:
             history_entry = QueryHistory(
                 user_id=current_user.id,
@@ -186,7 +189,14 @@ def generate_query(
             db.add(history_entry)
             db.commit()
         
-        return SQLResponse(sql=sql, is_valid=is_valid, message=message)
+        return SQLResponse(
+            sql=sql, 
+            is_valid=is_valid, 
+            message=message,
+            from_cache=from_cache,
+            cache_similarity=cache_similarity,
+            original_question=original_question
+        )
     except HTTPException:
         raise
     except Exception as e:

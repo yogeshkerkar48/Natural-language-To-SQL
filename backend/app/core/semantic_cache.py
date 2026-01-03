@@ -130,7 +130,8 @@ class SemanticCache:
         }
         
         # Generate hash
-        schema_json = json.dumps(schema_dict, sort_keys=True)
+        schema_json = json.dumps(schema_dict, sort_keys=True, separators=(',', ':'))
+        print(f"DEBUG: Hashing schema JSON: {schema_json}")
         return hashlib.sha256(schema_json.encode()).hexdigest()
     
     def find_similar_query(
